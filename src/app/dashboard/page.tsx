@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { SignOutButton, useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface JobListing {
   id: number;
@@ -265,17 +265,70 @@ function JobCard({ job, onMessageClick }: { job: JobListing; onMessageClick: (jo
     return words.slice(0, 30).join(' ') + '...';
   };
 
+  // Generate a consistent random rating for each user based on their name
+  const getUserRating = (userName: string) => {
+    let hash = 0;
+    for (let i = 0; i < userName.length; i++) {
+      const char = userName.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    // Generate rating between 3.0 and 5.0 (to keep ratings reasonable)
+    const rating = 3.0 + (Math.abs(hash) % 21) / 10; // 3.0 to 5.0 with 0.1 increments
+    return Math.round(rating * 10) / 10; // Round to 1 decimal place
+  };
+
+  const renderStars = (rating: number) => {
+    const stars = [];
+    const fillPercentage = (rating / 5) * 100; // Convert rating to percentage
+    
+    // Always render exactly 5 stars
+    for (let i = 0; i < 5; i++) {
+      const starFillPercentage = Math.max(0, Math.min(100, (rating - i) * 100));
+      
+      stars.push(
+        <div key={i} className="relative w-4 h-4">
+          {/* Background star (gray) */}
+          <svg className="absolute inset-0 w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+          </svg>
+          
+          {/* Foreground star (golden) with clipping */}
+          <div 
+            className="absolute inset-0 overflow-hidden"
+            style={{ width: `${starFillPercentage}%` }}
+          >
+            <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+          </div>
+        </div>
+      );
+    }
+    
+    return stars;
+  };
+
+  const userRating = getUserRating(job.postedBy);
+
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 border border-gray-200">
       <div className="flex justify-between items-start mb-3">
         <h3 className="text-xl font-bold text-gray-800">{job.title}</h3>
         <div className="flex items-center space-x-2">
-          <button 
-            onClick={() => console.log(`Navigate to ${job.postedBy}'s profile`)}
-            className="text-sm text-gray-600 hover:text-blue-600 transition-colors duration-200"
-          >
-            {job.postedBy}
-          </button>
+          <div className="text-right">
+            <button 
+              onClick={() => console.log(`Navigate to ${job.postedBy}'s profile`)}
+              className="text-sm text-gray-600 hover:text-blue-600 transition-colors duration-200 block"
+            >
+              {job.postedBy}
+            </button>
+            <div className="flex items-center justify-end space-x-1 mt-1">
+              <div className="flex items-center space-x-1">
+                {renderStars(userRating)}
+              </div>
+            </div>
+          </div>
           <button 
             onClick={() => console.log(`Navigate to ${job.postedBy}'s profile`)}
             className="w-8 h-8 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors duration-200 flex items-center justify-center overflow-hidden"
@@ -883,9 +936,63 @@ function PostRequirementModal({ isOpen, onClose, onPost, userCredits }: PostRequ
   );
 }
 
+function WelcomeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden transform transition-all duration-300 scale-100 hover:scale-105">
+        {/* Celebration Header */}
+        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 p-6 text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-stars-pattern opacity-20"></div>
+          <div className="relative z-10">
+            <div className="text-6xl mb-4">🎉</div>
+            <h2 className="text-2xl font-bold text-white mb-2">Welcome to Skill Share!</h2>
+            <div className="flex justify-center space-x-2 text-3xl">
+              <span className="inline-block animate-pulse" style={{ animationDelay: '0.1s' }}>🎊</span>
+              <span className="inline-block animate-pulse" style={{ animationDelay: '0.2s' }}>✨</span>
+              <span className="inline-block animate-pulse" style={{ animationDelay: '0.3s' }}>🎈</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Welcome Message */}
+        <div className="p-8 text-center">
+          <div className="bg-gradient-to-r from-green-100 to-blue-100 rounded-xl p-6 mb-6 border-2 border-dashed border-green-300">
+            <div className="text-4xl mb-4">💰</div>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">You have been credited with 1000 credits!</h3>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              Utilise them for posting your requirements.
+            </p>
+            <p className="text-gray-700 leading-relaxed">
+              If you need more credits, then take the opportunities and earn the credits or buy them.
+            </p>
+          </div>
+
+
+          <button
+            onClick={onClose}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-full font-semibold hover:from-purple-700 hover:to-blue-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+          >
+            Get Started! 🚀
+          </button>
+        </div>
+
+        {/* Confetti Effect */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+          <div className="absolute top-4 left-4 text-yellow-400 text-lg opacity-60">⭐</div>
+          <div className="absolute top-8 right-8 text-pink-400 text-lg opacity-60">💖</div>
+          <div className="absolute bottom-8 left-8 text-green-400 text-lg opacity-60">🌟</div>
+          <div className="absolute bottom-4 right-4 text-blue-400 text-lg opacity-60">🎯</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Header({ onChatOpen }: { onChatOpen: () => void }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const userCredits = 1612;
+  const userCredits = 1000;
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
@@ -969,17 +1076,23 @@ function Header({ onChatOpen }: { onChatOpen: () => void }) {
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
   const [isHovered, setIsHovered] = useState(false);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [creditOperator, setCreditOperator] = useState('>');
   const [creditValue, setCreditValue] = useState<string>('');
   const [isFieldDropdownOpen, setIsFieldDropdownOpen] = useState(false);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [experienceValue, setExperienceValue] = useState<string>('');
+  const [experienceUnit, setExperienceUnit] = useState<'Months' | 'Years'>('Months');
   const [allJobs, setAllJobs] = useState<JobListing[]>(jobListings);
   const [filteredJobs, setFilteredJobs] = useState<JobListing[]>(jobListings);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState<string>('');
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // Guard to ensure user has completed personal info
   useEffect(() => {
@@ -992,6 +1105,33 @@ export default function Dashboard() {
       }
     }
   }, [isLoaded, user, router]);
+
+  // Show welcome modal for new users
+  useEffect(() => {
+    if (isLoaded && user && searchParams.get('welcome') === 'true') {
+      setShowWelcomeModal(true);
+      // Remove the welcome parameter from URL
+      router.replace('/dashboard', { scroll: false });
+    }
+  }, [isLoaded, user, searchParams, router]);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.location-dropdown')) {
+        setIsLocationDropdownOpen(false);
+      }
+      if (!target.closest('.field-dropdown')) {
+        setIsFieldDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Show loading while checking user status
   if (!isLoaded || !user) {
@@ -1120,12 +1260,125 @@ export default function Dashboard() {
     'Audio Engineering'
   ];
 
+  const availableLocations = [
+    'Remote',
+    'Mumbai',
+    'Delhi',
+    'Bangalore',
+    'Hyderabad',
+    'Chennai',
+    'Kolkata',
+    'Pune',
+    'Ahmedabad',
+    'Jaipur',
+    'Surat',
+    'Lucknow',
+    'Kanpur',
+    'Nagpur',
+    'Indore',
+    'Thane',
+    'Bhopal',
+    'Visakhapatnam',
+    'Pimpri-Chinchwad',
+    'Patna',
+    'Vadodara',
+    'Ghaziabad',
+    'Ludhiana',
+    'Agra',
+    'Nashik',
+    'Faridabad',
+    'Meerut',
+    'Rajkot',
+    'Kalyan-Dombivali',
+    'Vasai-Virar',
+    'Varanasi',
+    'Srinagar',
+    'Dhanbad',
+    'Jodhpur',
+    'Amritsar',
+    'Raipur',
+    'Allahabad',
+    'Coimbatore',
+    'Jabalpur',
+    'Gwalior',
+    'Vijayawada',
+    'Madurai',
+    'Guwahati',
+    'Chandigarh',
+    'Hubli-Dharwad',
+    'Mysore',
+    'Tiruchirappalli',
+    'Bareilly',
+    'Aligarh',
+    'Tiruppur',
+    'Gurgaon',
+    'Moradabad',
+    'Jalandhar',
+    'Bhubaneswar',
+    'Salem',
+    'Mira-Bhayandar',
+    'Warangal',
+    'Guntur',
+    'Bhiwandi',
+    'Saharanpur',
+    'Gorakhpur',
+    'Bikaner',
+    'Amravati',
+    'Noida',
+    'Jamshedpur',
+    'Bhilai',
+    'Cuttack',
+    'Firozabad',
+    'Kochi',
+    'Nellore',
+    'Bhavnagar',
+    'Dehradun',
+    'Durgapur',
+    'Asansol',
+    'Rourkela',
+    'Nanded',
+    'Kolhapur',
+    'Ajmer',
+    'Akola',
+    'Gulbarga',
+    'Jamnagar',
+    'Ujjain',
+    'Loni',
+    'Siliguri',
+    'Jhansi',
+    'Ulhasnagar',
+    'Jammu',
+    'Sangli-Miraj & Kupwad',
+    'Mangalore',
+    'Erode',
+    'Belgaum',
+    'Ambattur',
+    'Tirunelveli',
+    'Malegaon',
+    'Gaya',
+    'Jalgaon',
+    'Udaipur',
+    'Maheshtala'
+  ];
+
   const toggleFieldSelection = (field: string) => {
     setSelectedFields(prev => 
       prev.includes(field) 
         ? prev.filter(f => f !== field)
         : [...prev, field]
     );
+  };
+
+  const toggleLocationSelection = (location: string) => {
+    setSelectedLocations(prev => 
+      prev.includes(location) 
+        ? prev.filter(l => l !== location)
+        : [...prev, location]
+    );
+  };
+
+  const toggleExperienceUnit = () => {
+    setExperienceUnit(prev => prev === 'Months' ? 'Years' : 'Months');
   };
 
   const applyFilters = () => {
@@ -1139,6 +1392,35 @@ export default function Dashboard() {
           job.description.toLowerCase().includes(field.toLowerCase())
         )
       );
+    }
+
+    // Apply location filter
+    if (selectedLocations.length > 0) {
+      filtered = filtered.filter(job => 
+        job.location && selectedLocations.includes(job.location)
+      );
+    }
+
+    // Apply experience filter
+    if (experienceValue) {
+      const expNum = parseInt(experienceValue);
+      if (!isNaN(expNum)) {
+        filtered = filtered.filter(job => {
+          if (!job.experience || !job.experienceUnit) return true;
+          
+          // Convert job experience to months for comparison
+          const jobExperienceInMonths = job.experienceUnit === 'Years' 
+            ? job.experience * 12 
+            : job.experience;
+          
+          // Convert filter experience to months for comparison
+          const filterExperienceInMonths = experienceUnit === 'Years' 
+            ? expNum * 12 
+            : expNum;
+          
+          return jobExperienceInMonths < filterExperienceInMonths;
+        });
+      }
     }
 
     // Apply credits filter
@@ -1156,6 +1438,9 @@ export default function Dashboard() {
 
   const clearFilters = () => {
     setSelectedFields([]);
+    setSelectedLocations([]);
+    setExperienceValue('');
+    setExperienceUnit('Months');
     setCreditValue('');
     setFilteredJobs(allJobs);
   };
@@ -1172,6 +1457,8 @@ export default function Dashboard() {
     
     // Apply current filters to the updated job list
     let filtered = updatedJobs;
+    
+    // Apply field filter
     if (selectedFields.length > 0) {
       filtered = filtered.filter(job => 
         selectedFields.some(field => 
@@ -1180,6 +1467,35 @@ export default function Dashboard() {
         )
       );
     }
+    
+    // Apply location filter
+    if (selectedLocations.length > 0) {
+      filtered = filtered.filter(job => 
+        job.location && selectedLocations.includes(job.location)
+      );
+    }
+    
+    // Apply experience filter
+    if (experienceValue) {
+      const expNum = parseInt(experienceValue);
+      if (!isNaN(expNum)) {
+        filtered = filtered.filter(job => {
+          if (!job.experience || !job.experienceUnit) return true;
+          
+          const jobExperienceInMonths = job.experienceUnit === 'Years' 
+            ? job.experience * 12 
+            : job.experience;
+          
+          const filterExperienceInMonths = experienceUnit === 'Years' 
+            ? expNum * 12 
+            : expNum;
+          
+          return jobExperienceInMonths < filterExperienceInMonths;
+        });
+      }
+    }
+    
+    // Apply credits filter
     if (creditValue) {
       const creditNum = parseInt(creditValue);
       if (!isNaN(creditNum)) {
@@ -1188,6 +1504,7 @@ export default function Dashboard() {
         );
       }
     }
+    
     setFilteredJobs(filtered);
   };
 
@@ -1199,6 +1516,10 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative">
       <Header onChatOpen={() => setIsChatOpen(true)} />
+      <WelcomeModal 
+        isOpen={showWelcomeModal} 
+        onClose={() => setShowWelcomeModal(false)} 
+      />
       <ChatSidebar 
         isOpen={isChatOpen} 
         onClose={() => {
@@ -1211,7 +1532,7 @@ export default function Dashboard() {
         isOpen={isPostModalOpen} 
         onClose={() => setIsPostModalOpen(false)} 
         onPost={handlePostJob}
-        userCredits={1612}
+        userCredits={1000}
       />
       
       <main className="max-w-7xl mx-auto px-6 py-8">
@@ -1226,7 +1547,7 @@ export default function Dashboard() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Field
                 </label>
-                <div className="relative">
+                <div className="relative field-dropdown">
                   <button
                     onClick={() => setIsFieldDropdownOpen(!isFieldDropdownOpen)}
                     className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
@@ -1274,6 +1595,83 @@ export default function Dashboard() {
                 )}
               </div>
               
+              {/* Location Filter */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location
+                </label>
+                <div className="relative location-dropdown">
+                  <button
+                    onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
+                  >
+                    {selectedLocations.length === 0 
+                      ? 'Select locations...' 
+                      : `${selectedLocations.length} location${selectedLocations.length > 1 ? 's' : ''} selected`
+                    }
+                    <svg className="absolute right-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {isLocationDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {availableLocations.map((location) => (
+                        <label key={location} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedLocations.includes(location)}
+                            onChange={() => toggleLocationSelection(location)}
+                            className="mr-2 text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-sm text-black">{location}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {selectedLocations.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {selectedLocations.map((location) => (
+                      <span key={location} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                        {location}
+                        <button
+                          onClick={() => toggleLocationSelection(location)}
+                          className="ml-1 text-purple-600 hover:text-purple-800"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Experience Filter */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Experience
+                </label>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600 flex-shrink-0">Less than</span>
+                  <input
+                    type="number"
+                    value={experienceValue}
+                    onChange={(e) => setExperienceValue(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    className="w-16 border border-gray-300 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black"
+                  />
+                  <button
+                    onClick={toggleExperienceUnit}
+                    className="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm flex-shrink-0 min-w-[70px]"
+                  >
+                    {experienceUnit}
+                  </button>
+                </div>
+              </div>
+
               {/* Credits Range Filter */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1319,7 +1717,7 @@ export default function Dashboard() {
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-gray-800 mb-2">Available Opportunities</h2>
               <p className="text-gray-600">
-                Discover and apply for exciting projects that match your skills
+                Discover and apply for exciting projects that match your skills and earn credits
                 {filteredJobs.length !== allJobs.length && (
                   <span className="ml-2 text-purple-600 font-medium">
                     ({filteredJobs.length} of {allJobs.length} jobs shown)

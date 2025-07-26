@@ -198,8 +198,8 @@ export default function PersonalInfoPage() {
       localStorage.setItem(`personalInfo_data_${user.id}`, JSON.stringify(formData));
     }
     
-    // Redirect to dashboard after completing personal info
-    router.push('/dashboard');
+    // Redirect to dashboard after completing personal info with welcome flag
+    router.push('/dashboard?welcome=true');
   };
 
   return (

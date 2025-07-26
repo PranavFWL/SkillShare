@@ -198,7 +198,7 @@ export default function BuyCreditsPage() {
             {/* Current Credits Display */}
             <div className="text-center mt-6">
               <p className="text-gray-600">
-                Current Credits: <span className="font-semibold text-purple-600">1612</span>
+                Current Credits: <span className="font-semibold text-purple-600">1000</span>
               </p>
             </div>
           </div>
